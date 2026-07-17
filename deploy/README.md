@@ -1,22 +1,7 @@
 # Деплой LiveMe на abuzhuma.com
 
-## Что нужно на сервере (один раз)
-
-Ubuntu/Debian с настроенным DNS (A-запись abuzhuma.com уже указывает на сервер).
-
-```bash
-# базовые пакеты
-sudo apt update
-sudo apt install -y nginx certbot ffmpeg curl build-essential pkg-config libssl-dev
-
-# node >= 20 (nodesource)
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source "$HOME/.cargo/env"
-```
+Нужен Ubuntu/Debian-сервер с настроенным DNS (A-запись abuzhuma.com указывает
+на сервер).
 
 ## Деплой
 
@@ -25,10 +10,12 @@ git clone <репозиторий> liveme && cd liveme   # или rsync ката
 sudo ./deploy/deploy.sh
 ```
 
-Скрипт сам: соберёт бэкенд и фронтенд, скачает MediaMTX (пин версии + SHA-256),
-создаст пользователя `liveme`, сгенерирует пароль кабинета (выведет его и
-сохранит в `/etc/liveme/env`), поставит systemd-юниты, настроит nginx и
-выпустит TLS-сертификат.
+Скрипт сам: поставит недостающие зависимости (nginx, certbot, ffmpeg,
+build-essential через apt; node 22 через nodesource; rust через rustup),
+соберёт бэкенд и фронтенд, скачает MediaMTX (пин версии + SHA-256), создаст
+пользователя `liveme`, сгенерирует пароль кабинета (выведет его и сохранит в
+`/etc/liveme/env`), поставит systemd-юниты, настроит nginx и выпустит
+TLS-сертификат.
 
 Обновление после правок кода: `git pull && sudo ./deploy/deploy.sh` - тот же
 скрипт, повторный запуск безопасен.

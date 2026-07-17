@@ -14,11 +14,40 @@ if ! command -v cargo >/dev/null 2>&1 && [ -n "${SUDO_USER:-}" ] \
   && [ -x "/home/$SUDO_USER/.cargo/bin/cargo" ]; then
   export PATH="/home/$SUDO_USER/.cargo/bin:$PATH"
 fi
+[ -x "$HOME/.cargo/bin/cargo" ] && export PATH="$HOME/.cargo/bin:$PATH"
+
+echo "== зависимости =="
+export DEBIAN_FRONTEND=noninteractive
+APT_PKGS=()
+command -v curl    >/dev/null || APT_PKGS+=(curl)
+command -v nginx   >/dev/null || APT_PKGS+=(nginx)
+command -v certbot >/dev/null || APT_PKGS+=(certbot)
+command -v ffmpeg  >/dev/null || APT_PKGS+=(ffmpeg)
+command -v cc      >/dev/null || APT_PKGS+=(build-essential)
+if [ ${#APT_PKGS[@]} -gt 0 ]; then
+  echo "   ставлю: ${APT_PKGS[*]}"
+  apt-get update -q
+  apt-get install -y -q "${APT_PKGS[@]}"
+fi
+
+node_ok() {
+  command -v node >/dev/null 2>&1 \
+    && node -e 'process.exit(+process.versions.node.split(".")[0] >= 20 ? 0 : 1)'
+}
+if ! node_ok; then
+  echo "   ставлю node 22 (nodesource)"
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y -q nodejs
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "   ставлю rust (rustup, minimal)"
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "ОШИБКА: не найден '$1' - установите его" >&2; exit 1; }; }
 need node; need npm; need cargo; need ffmpeg; need nginx; need curl; need certbot
-node -e 'process.exit(+process.versions.node.split(".")[0] >= 20 ? 0 : 1)' \
-  || { echo "ОШИБКА: нужен node >= 20 (сейчас $(node -v))" >&2; exit 1; }
 
 echo "== сборка бэкенда (release) =="
 ( cd "$ROOT/backend" && cargo build --release --quiet )
