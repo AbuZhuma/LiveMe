@@ -1,0 +1,59 @@
+logLevel: info
+logDestinations: [stdout]
+
+authMethod: http
+authHTTPAddress: http://127.0.0.1:8080/internal/mtx-auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+  - action: publish
+    path: ~^aac/
+  - action: read
+  - action: playback
+
+api: true
+apiAddress: 127.0.0.1:9997
+
+metrics: false
+pprof: false
+playback: false
+rtmp: false
+srt: false
+moq: false
+
+rtsp: true
+rtspAddress: 127.0.0.1:8554
+rtspTransports: [tcp]
+rtspEncryption: "no"
+
+webrtc: true
+webrtcAddress: 127.0.0.1:8889
+webrtcEncryption: false
+webrtcLocalUDPAddress: :8189
+webrtcIPsFromInterfaces: true
+webrtcAdditionalHosts: []
+
+hls: true
+hlsAddress: 127.0.0.1:8888
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsAlwaysRemux: false
+hlsAllowOrigins: ["*"]
+
+pathDefaults:
+  record: false
+
+paths:
+  "live/main":
+    source: publisher
+    record: false
+    runOnReady: ./media/scripts/on-ready.sh
+    runOnReadyRestart: true
+    runOnNotReady: curl -sS -m 3 -X POST http://127.0.0.1:8080/internal/hooks/notready
+
+  "aac/main":
+    source: publisher
+    record: false

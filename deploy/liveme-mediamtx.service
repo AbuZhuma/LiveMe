@@ -1,0 +1,16 @@
+[Unit]
+Description=LiveMe MediaMTX (WHIP :8889, LL-HLS :8888)
+After=network.target liveme-backend.service
+Wants=liveme-backend.service
+
+[Service]
+Type=simple
+User=liveme
+WorkingDirectory=@APP_DIR@
+Environment=MTX_WEBRTCADDITIONALHOSTS=@DOMAIN@
+ExecStart=@APP_DIR@/media/.cache/mediamtx @APP_DIR@/media/mediamtx.yml
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

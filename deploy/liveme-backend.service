@@ -1,0 +1,15 @@
+[Unit]
+Description=LiveMe backend (axum, :8080)
+After=network.target
+
+[Service]
+Type=simple
+User=liveme
+WorkingDirectory=@APP_DIR@
+EnvironmentFile=/etc/liveme/env
+ExecStart=@APP_DIR@/backend/target/release/liveme-backend
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

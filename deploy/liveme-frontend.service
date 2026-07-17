@@ -1,0 +1,15 @@
+[Unit]
+Description=LiveMe frontend (Next.js, :3000)
+After=network.target
+
+[Service]
+Type=simple
+User=liveme
+WorkingDirectory=@APP_DIR@/frontend
+Environment=NODE_ENV=production
+ExecStart=@NODE@ @APP_DIR@/frontend/node_modules/.bin/next start -H 127.0.0.1 -p 3000
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
