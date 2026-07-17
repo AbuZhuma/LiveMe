@@ -435,8 +435,8 @@ export default function Broadcaster({ token }: { token: string }) {
   const broadcasting = state === "on";
 
   return (
-    <div className="rounded-brand border border-line bg-panel p-4">
-      <div className="grid gap-4 md:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="rounded-brand border border-line bg-panel p-3 sm:p-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[280px_minmax(0,1fr)]">
         <div
           className={`relative aspect-video overflow-hidden rounded-brand bg-black ${
             broadcasting ? "player-live" : ""
@@ -458,7 +458,7 @@ export default function Broadcaster({ token }: { token: string }) {
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex overflow-hidden rounded-brand border border-line">
+            <div className="flex w-full overflow-hidden rounded-brand border border-line sm:w-auto">
               {(
                 [
                   ["camera", "Камера"],
@@ -471,7 +471,7 @@ export default function Broadcaster({ token }: { token: string }) {
                   type="button"
                   disabled={state === "starting"}
                   onClick={() => (broadcasting ? void applyMode(s) : setSource(s))}
-                  className={`px-3 py-1.5 text-sm transition ${
+                  className={`flex-1 px-2 py-2.5 text-xs whitespace-nowrap transition sm:flex-none sm:px-3 sm:py-1.5 sm:text-sm ${
                     source === s
                       ? "bg-accent-soft text-accent"
                       : "text-muted hover:text-ink"
@@ -515,7 +515,7 @@ export default function Broadcaster({ token }: { token: string }) {
               <button
                 type="button"
                 onClick={() => void stop()}
-                className="flex items-center gap-2 rounded-brand bg-panel-2 px-5 py-2.5 font-medium text-ink transition hover:bg-line"
+                className="flex w-full items-center justify-center gap-2 rounded-brand bg-panel-2 px-5 py-3 font-medium text-ink transition hover:bg-line sm:w-auto sm:py-2.5"
               >
                 <IconSquare size={14} />
                 Завершить эфир
@@ -525,7 +525,7 @@ export default function Broadcaster({ token }: { token: string }) {
                 type="button"
                 onClick={() => void start()}
                 disabled={state === "starting"}
-                className="flex items-center gap-2 rounded-brand bg-accent px-5 py-2.5 font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-brand bg-accent px-5 py-3 font-medium text-white transition hover:opacity-90 disabled:opacity-50 sm:w-auto sm:py-2.5"
               >
                 {state === "starting" ? (
                   "Подключение…"

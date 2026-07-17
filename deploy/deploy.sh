@@ -72,7 +72,7 @@ id -u liveme >/dev/null 2>&1 || useradd --system --home "$ROOT" --shell /usr/sbi
 mkdir -p "$ROOT/data/uploads"
 if [ ! -f /etc/liveme/env ]; then
   mkdir -p /etc/liveme
-  PASS="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)"
+  PASS="$(head -c 128 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 20)"
   cat > /etc/liveme/env <<EOF
 ADMIN_PASSWORD=$PASS
 LIVEME_DATA=$ROOT/data

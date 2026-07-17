@@ -65,7 +65,7 @@ function Btn({
       disabled={disabled}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-sm transition ${
+      className={`flex h-9 min-w-9 shrink-0 items-center justify-center rounded-md px-1.5 text-sm whitespace-nowrap transition sm:h-8 sm:min-w-8 ${
         active ? "bg-accent-soft text-accent" : "text-ink/80 hover:bg-panel-2"
       } disabled:opacity-30`}
     >
@@ -75,7 +75,7 @@ function Btn({
 }
 
 function Sep() {
-  return <span className="mx-1 h-5 w-px self-center bg-line" />;
+  return <span className="mx-1 h-5 w-px shrink-0 self-center bg-line" />;
 }
 
 function Toolbar({ editor }: { editor: TT }) {
@@ -105,7 +105,7 @@ function Toolbar({ editor }: { editor: TT }) {
 
   const c = editor.chain();
   return (
-    <div className="sticky top-14 z-10 flex flex-wrap items-center gap-0.5 rounded-t-brand border-b border-line bg-panel p-2">
+    <div className="chat-scroll sticky top-14 z-10 flex items-center gap-0.5 overflow-x-auto rounded-t-brand border-b border-line bg-panel p-2 sm:flex-wrap sm:overflow-x-visible">
       {[1, 2, 3, 4].map((l) => (
         <Btn
           key={l}
@@ -144,7 +144,7 @@ function Toolbar({ editor }: { editor: TT }) {
       <Btn title="Подстрочный" active={editor.isActive("subscript")} onClick={() => c.focus().toggleSubscript().run()}>
         x₂
       </Btn>
-      <span className="mx-0.5 flex items-center gap-0.5">
+      <span className="mx-0.5 flex shrink-0 items-center gap-1 sm:gap-0.5">
         {COLORS.map((col) => (
           <button
             key={col || "reset"}
@@ -156,7 +156,7 @@ function Toolbar({ editor }: { editor: TT }) {
                 ? editor.chain().focus().setColor(col).run()
                 : editor.chain().focus().unsetColor().run()
             }
-            className="h-4 w-4 rounded-full border border-line"
+            className="h-5 w-5 shrink-0 rounded-full border border-line sm:h-4 sm:w-4"
             style={{ background: col || "transparent" }}
           >
             {!col && <IconX size={9} className="mx-auto block text-muted" />}
@@ -292,7 +292,7 @@ export default function Editor({ initial }: { initial: string }) {
     },
     editorProps: {
       attributes: {
-        class: "tiptap article prose prose-neutral dark:prose-invert max-w-none px-5 py-4",
+        class: "tiptap article prose prose-neutral dark:prose-invert max-w-none px-4 py-3 sm:px-5 sm:py-4",
       },
     },
   });
@@ -349,7 +349,7 @@ export default function Editor({ initial }: { initial: string }) {
     <div className="rounded-brand border border-line bg-panel">
       <Toolbar editor={editor} />
       <EditorContent editor={editor} />
-      <div className="flex items-center justify-between border-t border-line px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-line px-3 py-2.5 sm:px-4 sm:py-3">
         <span className="font-mono text-xs text-muted">
           {editor.storage.characterCount.characters()} символов ·{" "}
           {editor.storage.characterCount.words()} слов
