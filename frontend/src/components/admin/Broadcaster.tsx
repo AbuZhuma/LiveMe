@@ -10,6 +10,17 @@ const OUT_W = 1280;
 const OUT_H = 720;
 const FPS = 30;
 
+type OutboundVideoStats = {
+  type: string;
+  kind?: string;
+  timestamp: number;
+  bytesSent?: number;
+  frameWidth?: number;
+  frameHeight?: number;
+  framesPerSecond?: number;
+  qualityLimitationReason?: string;
+};
+
 type TrackProcessor = { readable: ReadableStream<VideoFrame> };
 type TrackGenerator = MediaStreamTrack & { writable: WritableStream<VideoFrame> };
 declare global {
@@ -87,6 +98,7 @@ export default function Broadcaster({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [source, setSource] = useState<Source>("camera");
   const [micOn, setMicOn] = useState(true);
+  const [stats, setStats] = useState("");
 
   const previewRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -105,6 +117,9 @@ export default function Broadcaster({ token }: { token: string }) {
   const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const statsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastBytesRef = useRef(0);
+  const lastStatsTsRef = useRef(0);
 
   const hiddenVideo = (stream: MediaStream) => {
     const v = document.createElement("video");
@@ -120,6 +135,7 @@ export default function Broadcaster({ token }: { token: string }) {
     const s = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
     });
+    s.getVideoTracks().forEach((t) => (t.contentHint = "motion"));
     camStreamRef.current = s;
   };
 
@@ -306,7 +322,47 @@ export default function Broadcaster({ token }: { token: string }) {
     setSource(next);
   };
 
+  const startStats = () => {
+    lastBytesRef.current = 0;
+    lastStatsTsRef.current = 0;
+    statsTimerRef.current = setInterval(async () => {
+      const pc = pcRef.current;
+      if (!pc) return;
+      const report = await pc.getStats().catch(() => null);
+      if (!report) return;
+      let line = "";
+      report.forEach((raw) => {
+        const s = raw as OutboundVideoStats;
+        if (s.type !== "outbound-rtp" || s.kind !== "video") return;
+        const bytes = s.bytesSent ?? 0;
+        const kbps = lastStatsTsRef.current
+          ? Math.max(
+              0,
+              Math.round(
+                ((bytes - lastBytesRef.current) * 8) /
+                  (s.timestamp - lastStatsTsRef.current)
+              )
+            )
+          : 0;
+        lastBytesRef.current = bytes;
+        lastStatsTsRef.current = s.timestamp;
+        const reason = s.qualityLimitationReason;
+        const limit =
+          reason && reason !== "none"
+            ? ` · упирается в ${reason === "cpu" ? "CPU" : reason === "bandwidth" ? "канал" : reason}`
+            : "";
+        line = `${s.frameWidth ?? "?"}×${s.frameHeight ?? "?"} · ${
+          s.framesPerSecond ?? "?"
+        } fps · ${kbps} кбит/с${limit}`;
+      });
+      setStats(line);
+    }, 2000);
+  };
+
   const stop = async () => {
+    if (statsTimerRef.current) clearInterval(statsTimerRef.current);
+    statsTimerRef.current = null;
+    setStats("");
     const res = resourceRef.current;
     resourceRef.current = null;
     if (res) await fetch(res, { method: "DELETE" }).catch(() => {});
@@ -424,6 +480,7 @@ export default function Broadcaster({ token }: { token: string }) {
           }
         }
       });
+      startStats();
       setState("on");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось начать эфир");
@@ -508,6 +565,9 @@ export default function Broadcaster({ token }: { token: string }) {
             )}
             {live && !broadcasting && " (поток идёт не из этой вкладки)"}
           </p>
+          {broadcasting && stats && (
+            <p className="font-mono text-xs text-muted tabular-nums">{stats}</p>
+          )}
           {error && <p className="text-sm text-accent">{error}</p>}
 
           <div className="mt-auto">
