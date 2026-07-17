@@ -46,7 +46,7 @@ export default function Player() {
         const hls = new Hls({
           lowLatencyMode: true,
           liveDurationInfinity: true,
-          maxLiveSyncPlaybackRate: 1.5,
+          maxLiveSyncPlaybackRate: 1.15,
         });
         hlsRef.current = hls;
         hls.loadSource(SRC);

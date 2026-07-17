@@ -37,9 +37,9 @@ webrtcAdditionalHosts: []
 hls: true
 hlsAddress: 127.0.0.1:8888
 hlsVariant: lowLatency
-hlsSegmentCount: 7
-hlsSegmentDuration: 1s
-hlsPartDuration: 200ms
+hlsSegmentCount: 10
+hlsSegmentDuration: 2s
+hlsPartDuration: 500ms
 hlsAlwaysRemux: false
 hlsAllowOrigins: ["*"]
 

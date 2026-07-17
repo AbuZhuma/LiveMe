@@ -387,7 +387,7 @@ export default function Broadcaster({ token }: { token: string }) {
       const sender = pc.getSenders().find((s) => s.track?.kind === "video");
       if (sender) {
         const p = sender.getParameters();
-        p.encodings = [{ maxBitrate: 4_500_000 }];
+        p.encodings = [{ maxBitrate: 3_000_000 }];
         p.degradationPreference = "maintain-framerate";
         await sender.setParameters(p);
       }
