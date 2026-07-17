@@ -84,6 +84,20 @@ EOF
   echo
 fi
 chown -R liveme:liveme "$ROOT/data"
+chown -R liveme:liveme "$ROOT/frontend/.next"
+
+d="$ROOT"
+while [ "$d" != "/" ]; do
+  if ! sudo -u liveme test -x "$d" 2>/dev/null; then
+    if command -v setfacl >/dev/null 2>&1; then
+      setfacl -m u:liveme:--x "$d"
+    else
+      chmod o+x "$d"
+    fi
+    echo "   traverse-доступ для liveme: $d"
+  fi
+  d="$(dirname "$d")"
+done
 
 echo "== systemd-юниты =="
 NODE_BIN="$(command -v node)"
