@@ -41,6 +41,24 @@ export default function Player() {
     const video = videoRef.current;
     if (!video) return;
 
+    // видео без controls: пауза может взяться только от браузера
+    // (AbortError при старте, экономия фоновой вкладки) — всегда возобновляем
+    const resume = () => {
+      if (video.paused) video.play().catch(() => {});
+    };
+    // после фоновой паузы отстаём от эфира: прыгаем к live-краю и играем
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const h = hlsRef.current;
+      const edge = h?.liveSyncPosition;
+      if (typeof edge === "number" && edge - video.currentTime > 2) {
+        video.currentTime = edge;
+      }
+      video.play().catch(() => {});
+    };
+    video.addEventListener("canplay", resume);
+    document.addEventListener("visibilitychange", onVisible);
+
     if (live) {
       if (Hls.isSupported()) {
         const hls = new Hls({
@@ -67,6 +85,8 @@ export default function Player() {
       }
     }
     return () => {
+      video.removeEventListener("canplay", resume);
+      document.removeEventListener("visibilitychange", onVisible);
       hlsRef.current?.destroy();
       hlsRef.current = null;
       video.removeAttribute("src");
