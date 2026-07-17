@@ -96,7 +96,7 @@ export default function Player() {
           }}
           aria-label={muted ? "Включить звук" : "Выключить звук"}
           title={muted ? "Включить звук" : "Выключить звук"}
-          className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-brand bg-black/60 text-white backdrop-blur transition hover:bg-black/80"
+          className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-brand bg-black/60 text-white transition hover:bg-black/80"
         >
           {muted ? <IconVolumeX size={16} /> : <IconVolume size={16} />}
         </button>

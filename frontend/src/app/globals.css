@@ -65,16 +65,11 @@ body {
 .onair-dot {
   animation: lamp-pulse 1.6s ease-in-out infinite;
 }
-@keyframes player-glow {
-  0%, 100% { box-shadow: 0 0 0 1px var(--accent), 0 0 34px var(--glow); }
-  50% { box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow); }
-}
 .player-live {
-  animation: player-glow 3.2s ease-in-out infinite;
+  box-shadow: 0 0 0 1px var(--accent), 0 0 26px var(--glow);
 }
 @media (prefers-reduced-motion: reduce) {
-  .onair-dot, .player-live { animation: none; }
-  .player-live { box-shadow: 0 0 0 1px var(--accent), 0 0 22px var(--glow); }
+  .onair-dot { animation: none; }
 }
 
 .testcard {
