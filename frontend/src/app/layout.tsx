@@ -30,22 +30,22 @@ const SITE_URL = "https://abuzhuma.com";
 
 const socials = [
   {
-    label: "GitHub — AbuZhuma",
+    label: "GitHub - AbuZhuma",
     href: "https://github.com/AbuZhuma",
     Icon: IconGithub,
   },
   {
-    label: "LinkedIn — abuzhuma",
+    label: "LinkedIn - abuzhuma",
     href: "https://www.linkedin.com/in/abuzhuma",
     Icon: IconLinkedin,
   },
   {
-    label: "Telegram — AbuZhuma",
+    label: "Telegram - AbuZhuma",
     href: "https://t.me/AbuZhuma",
     Icon: IconTelegram,
   },
   {
-    label: "Instagram — abu_zhuma",
+    label: "Instagram - abu_zhuma",
     href: "https://www.instagram.com/abu_zhuma",
     Icon: IconInstagram,
   },
@@ -54,11 +54,11 @@ const socials = [
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "LiveMe — прямой эфир Абдырахмана Джумагулова (AbuZhuma)",
-    template: "%s — LiveMe · AbuZhuma",
+    default: "LiveMe - прямой эфир Абдырахмана Джумагулова (AbuZhuma)",
+    template: "%s - LiveMe · AbuZhuma",
   },
   description:
-    "Личный телеканал фулстек-разработчика Абдырахмана Джумагулова (AbuZhuma): один эфир, живые реакции и комментарии. Personal live channel of Abdyrakhman Zhumagulov — full-stack developer.",
+    "Личный телеканал фулстек-разработчика Абдырахмана Джумагулова (AbuZhuma): один эфир, живые реакции и комментарии. Personal live channel of Abdyrakhman Zhumagulov - full-stack developer.",
   keywords: [
     "Abdyrakhman Zhumagulov",
     "Абдырахман Джумагулов",
@@ -79,15 +79,15 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: "LiveMe · AbuZhuma",
-    title: "LiveMe — прямой эфир Абдырахмана Джумагулова (AbuZhuma)",
+    title: "LiveMe - прямой эфир Абдырахмана Джумагулова (AbuZhuma)",
     description:
-      "Личный телеканал фулстек-разработчика: один эфир, живые реакции и комментарии. Personal live channel of Abdyrakhman Zhumagulov — full-stack developer.",
+      "Личный телеканал фулстек-разработчика: один эфир, живые реакции и комментарии. Personal live channel of Abdyrakhman Zhumagulov - full-stack developer.",
     locale: "ru_RU",
     alternateLocale: ["en_US"],
   },
   twitter: {
     card: "summary",
-    title: "LiveMe — Abdyrakhman Zhumagulov (AbuZhuma)",
+    title: "LiveMe - Abdyrakhman Zhumagulov (AbuZhuma)",
     description:
       "Личный телеканал фулстек-разработчика Абдырахмана Джумагулова. Personal live channel of a full-stack developer.",
   },
@@ -169,11 +169,7 @@ export default function RootLayout({
           <footer className="mx-auto w-full max-w-7xl px-3 pt-6 pb-4 sm:px-6">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
               <div className="font-mono text-[11px] text-muted">
-                <p>© {new Date().getFullYear()} abuzhuma.com</p>
-                <p className="mt-0.5">
-                  Абдырахман Джумагулов · Abdyrakhman Zhumagulov —
-                  full-stack developer
-                </p>
+                <p>© {new Date().getFullYear()} LiveMe | abuzhuma.com</p>
               </div>
               <nav aria-label="Соцсети" className="flex items-center gap-1">
                 {socials.map(({ label, href, Icon }) => (
