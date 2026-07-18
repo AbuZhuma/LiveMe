@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -u
-curl -sS -m 3 -X POST http://127.0.0.1:8080/internal/hooks/ready || true
 
 exec ffmpeg -hide_banner -loglevel warning -nostdin \
   -fflags +genpts -analyzeduration 1000000 -probesize 500000 \

@@ -59,7 +59,23 @@ export default function Player() {
     video.addEventListener("canplay", resume);
     document.addEventListener("visibilitychange", onVisible);
 
-    if (live) {
+    let stopped = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const retry = (fn: () => void) => {
+      if (stopped) return;
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = setTimeout(fn, 1500);
+    };
+
+    const startNative = () => {
+      video.src = SRC;
+      video.load();
+      video.play().catch(() => {});
+    };
+    const onNativeError = () => retry(startNative);
+
+    const start = () => {
+      if (stopped) return;
       if (Hls.isSupported()) {
         const hls = new Hls({
           lowLatencyMode: true,
@@ -74,16 +90,27 @@ export default function Player() {
         });
         hls.on(Hls.Events.ERROR, (_e, data) => {
           if (!data.fatal) return;
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+            return;
+          }
+          hls.destroy();
+          if (hlsRef.current === hls) hlsRef.current = null;
+          retry(start);
         });
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = SRC;
-        video.play().catch(() => {});
+        video.addEventListener("error", onNativeError);
+        startNative();
       }
-    }
+    };
+
+    if (live) start();
+
     return () => {
+      stopped = true;
+      if (retryTimer) clearTimeout(retryTimer);
       video.removeEventListener("canplay", resume);
+      video.removeEventListener("error", onNativeError);
       document.removeEventListener("visibilitychange", onVisible);
       hlsRef.current?.destroy();
       hlsRef.current = null;

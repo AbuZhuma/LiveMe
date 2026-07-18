@@ -52,8 +52,9 @@ paths:
     record: false
     runOnReady: ./media/scripts/on-ready.sh
     runOnReadyRestart: true
-    runOnNotReady: curl -sS -m 3 -X POST http://127.0.0.1:8080/internal/hooks/notready
 
   "aac/main":
     source: publisher
     record: false
+    runOnReady: curl -sS -m 3 -X POST http://127.0.0.1:8080/internal/hooks/ready
+    runOnNotReady: curl -sS -m 3 -X POST http://127.0.0.1:8080/internal/hooks/notready
