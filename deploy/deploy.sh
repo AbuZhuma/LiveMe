@@ -112,7 +112,6 @@ echo "== TCP: раздача эфира дальнему зрителю =="
 
 install -d -m 755 /etc/sysctl.d
 cat > /etc/sysctl.d/99-liveme.conf <<'SYSCTL'
-# Раздача медиа (см. deploy/deploy.sh). Не менять без замера.
 net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
 net.ipv4.tcp_slow_start_after_idle = 0

@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Broadcaster from "@/components/admin/Broadcaster";
-import { useComments } from "@/components/Comments";
+import Player from "@/components/Player";
+import { ChatOverlay, useComments } from "@/components/Comments";
+import { FloatingReactions } from "@/components/Reactions";
+import { IconEye } from "@/components/icons";
 
 const Editor = dynamic(() => import("@/components/admin/Editor"), { ssr: false });
 
@@ -89,12 +92,55 @@ function Moderation() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Viewers() {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch("/api/viewers")
+        .then((r) => r.json())
+        .then((d) => {
+          if (alive && typeof d.viewers === "number") setCount(d.viewers);
+        })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 5000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  if (count === null) return null;
+  return (
+    <span
+      title="Сколько человек сейчас на сайте (включая эту вкладку)"
+      className="flex items-center gap-1.5 font-mono text-xs text-muted tabular-nums"
+    >
+      <IconEye size={14} />
+      {count}
+    </span>
+  );
+}
+
+function Section({
+  title,
+  aside,
+  children,
+}: {
+  title: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section className="space-y-3">
-      <h2 className="font-display text-[11px] font-semibold tracking-[0.25em] text-muted uppercase">
-        {title}
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-[11px] font-semibold tracking-[0.25em] text-muted uppercase">
+          {title}
+        </h2>
+        {aside}
+      </div>
       {children}
     </section>
   );
@@ -125,7 +171,7 @@ export default function AdminPage() {
   if (!token) return <Login onOk={setToken} />;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 px-3 py-4 sm:space-y-10 sm:px-4 sm:py-8">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-3 py-4 sm:space-y-10 sm:px-4 sm:py-8">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-lg font-semibold">Кабинет</h1>
         <button
@@ -140,7 +186,15 @@ export default function AdminPage() {
         </button>
       </div>
 
-      <Section title="Эфир">
+      <Section title="Эфир на сайте" aside={<Viewers />}>
+        <div className="relative">
+          <Player />
+          <ChatOverlay />
+          <FloatingReactions />
+        </div>
+      </Section>
+
+      <Section title="Управление эфиром">
         <Broadcaster token={token} />
       </Section>
 

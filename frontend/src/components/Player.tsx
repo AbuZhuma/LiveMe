@@ -26,6 +26,9 @@ function TestCard() {
         Эфир не идёт
       </p>
       <Clock />
+      <p className="text-sm opacity-90">
+        Эфир идёт с понедельника по субботу, с 10:00 до 19:00
+      </p>
       <p className="text-xs opacity-70">Страница оживёт сама - обновлять не нужно</p>
     </div>
   );
@@ -41,12 +44,9 @@ export default function Player() {
     const video = videoRef.current;
     if (!video) return;
 
-    // видео без controls: пауза может взяться только от браузера
-    // (AbortError при старте, экономия фоновой вкладки) — всегда возобновляем
     const resume = () => {
       if (video.paused) video.play().catch(() => {});
     };
-    // после фоновой паузы отстаём от эфира: прыгаем к live-краю и играем
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       const h = hlsRef.current;

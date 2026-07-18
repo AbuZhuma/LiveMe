@@ -15,7 +15,7 @@ use std::{
     collections::HashMap,
     net::{IpAddr, SocketAddr},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -31,6 +31,7 @@ struct App {
     sessions: Mutex<HashMap<String, Instant>>,
     events: tokio::sync::broadcast::Sender<String>,
     is_live: AtomicBool,
+    viewers: AtomicUsize,
     react_gate: Mutex<HashMap<IpAddr, (Instant, u32)>>,
     password: String,
     data_dir: std::path::PathBuf,
@@ -299,11 +300,30 @@ async fn post_react(
     Json(json!({ "ok": true })).into_response()
 }
 
+struct ViewerGuard(Arc<App>);
+impl Drop for ViewerGuard {
+    fn drop(&mut self) {
+        self.0.viewers.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+async fn viewers(State(app): S, headers: HeaderMap) -> axum::response::Response {
+    if !is_admin(&app, &headers) {
+        return err(StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+    }
+    Json(json!({ "viewers": app.viewers.load(Ordering::Relaxed) })).into_response()
+}
+
 async fn events(State(app): S) -> impl IntoResponse {
+    app.viewers.fetch_add(1, Ordering::Relaxed);
+    let guard = ViewerGuard(app.clone());
     let rx = app.events.subscribe();
-    let stream = BroadcastStream::new(rx).filter_map(|msg| async move {
-        msg.ok()
-            .map(|m| Ok::<Event, std::convert::Infallible>(Event::default().data(m)))
+    let stream = BroadcastStream::new(rx).filter_map(move |msg| {
+        let _connected = &guard;
+        let item = msg
+            .ok()
+            .map(|m| Ok::<Event, std::convert::Infallible>(Event::default().data(m)));
+        async move { item }
     });
     (
         [(header::CACHE_CONTROL, "no-cache, no-transform")],
@@ -424,6 +444,7 @@ async fn main() {
         sessions: Mutex::new(HashMap::new()),
         events: tx,
         is_live: AtomicBool::new(false),
+        viewers: AtomicUsize::new(0),
         react_gate: Mutex::new(HashMap::new()),
         password: std::env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "abdi2008".into()),
         data_dir: data_dir.clone(),
@@ -440,6 +461,7 @@ async fn main() {
         .route("/api/reactions", get(get_reactions))
         .route("/api/react", post(post_react))
         .route("/api/events", get(events))
+        .route("/api/viewers", get(viewers))
         .route(
             "/api/upload",
             post(upload).layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
