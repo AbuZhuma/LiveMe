@@ -9,6 +9,7 @@ type Source = "camera" | "screen" | "both";
 const OUT_W = 1280;
 const OUT_H = 720;
 const FPS = 30;
+const BLUR_PX = 12;
 
 type OutboundVideoStats = {
   type: string;
@@ -34,10 +35,42 @@ const COMPOSITOR_WORKER = `
 let screenFrame = null;
 
 onmessage = async (e) => {
-  const { screen, cam, out, w, h } = e.data;
+  const { screen, cam, out, w, h, blur } = e.data;
   const canvas = new OffscreenCanvas(w, h);
   const ctx = canvas.getContext("2d", { alpha: false });
   const writer = out.getWriter();
+  let blurPx = blur;
+  self.onmessage = (m) => {
+    if (m.data && typeof m.data.blur === "number") blurPx = m.data.blur;
+  };
+
+  const drawScreen = () => {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, w, h);
+    if (!screenFrame) return;
+    const sw = screenFrame.displayWidth, sh = screenFrame.displayHeight;
+    const k = Math.min(w / sw, h / sh);
+    if (blurPx > 0) ctx.filter = "blur(" + blurPx + "px)";
+    ctx.drawImage(screenFrame, (w - sw * k) / 2, (h - sh * k) / 2, sw * k, sh * k);
+    ctx.filter = "none";
+  };
+
+  if (!cam) {
+    const r = screen.getReader();
+    for (;;) {
+      const { value, done } = await r.read();
+      if (done) break;
+      if (screenFrame) screenFrame.close();
+      screenFrame = value;
+      drawScreen();
+      try {
+        await writer.write(new VideoFrame(canvas, { timestamp: screenFrame.timestamp }));
+      } catch {
+        break;
+      }
+    }
+    return;
+  }
 
   (async () => {
     const r = screen.getReader();
@@ -62,14 +95,7 @@ onmessage = async (e) => {
     const { value: camFrame, done } = await r.read();
     if (done) break;
 
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, w, h);
-
-    if (screenFrame) {
-      const sw = screenFrame.displayWidth, sh = screenFrame.displayHeight;
-      const k = Math.min(w / sw, h / sh);
-      ctx.drawImage(screenFrame, (w - sw * k) / 2, (h - sh * k) / 2, sw * k, sh * k);
-    }
+    drawScreen();
 
     const cw = camFrame.displayWidth, ch = camFrame.displayHeight;
     const k = Math.max(pw / cw, ph / ch);
@@ -98,6 +124,7 @@ export default function Broadcaster({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [source, setSource] = useState<Source>("camera");
   const [micOn, setMicOn] = useState(true);
+  const [blurOn, setBlurOn] = useState(false);
   const [stats, setStats] = useState("");
 
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -116,6 +143,7 @@ export default function Broadcaster({ token }: { token: string }) {
   const rafRef = useRef<number | null>(null);
   const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const blurRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const statsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastBytesRef = useRef(0);
@@ -183,7 +211,9 @@ export default function Broadcaster({ token }: { token: string }) {
       const k = Math.min(OUT_W / sv.videoWidth, OUT_H / sv.videoHeight);
       const dw = sv.videoWidth * k;
       const dh = sv.videoHeight * k;
+      if (blurRef.current) ctx.filter = `blur(${BLUR_PX}px)`;
       ctx.drawImage(sv, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
+      ctx.filter = "none";
     }
 
     const cv = camVideoRef.current;
@@ -211,40 +241,49 @@ export default function Broadcaster({ token }: { token: string }) {
     }
   };
 
-  const startCompositor = () => {
+  const startCompositor = (withCam: boolean) => {
     if (workerRef.current || rafRef.current !== null) return;
     const camTrack = camStreamRef.current?.getVideoTracks()[0];
     const screenTrack = screenStreamRef.current?.getVideoTracks()[0];
 
     if (
-      camTrack &&
       screenTrack &&
+      (!withCam || camTrack) &&
       window.MediaStreamTrackProcessor &&
       window.MediaStreamTrackGenerator
     ) {
       const gen = new window.MediaStreamTrackGenerator({ kind: "video" });
       gen.contentHint = "motion";
       const screenProc = new window.MediaStreamTrackProcessor({ track: screenTrack });
-      const camProc = new window.MediaStreamTrackProcessor({ track: camTrack });
+      const camProc =
+        withCam && camTrack
+          ? new window.MediaStreamTrackProcessor({ track: camTrack })
+          : null;
       const worker = new Worker(
         URL.createObjectURL(new Blob([COMPOSITOR_WORKER], { type: "text/javascript" }))
       );
+      const transfers: Transferable[] = [
+        screenProc.readable,
+        gen.writable,
+      ] as unknown as Transferable[];
+      if (camProc) transfers.push(camProc.readable as unknown as Transferable);
       worker.postMessage(
         {
           screen: screenProc.readable,
-          cam: camProc.readable,
+          cam: camProc?.readable ?? null,
           out: gen.writable,
           w: OUT_W,
           h: OUT_H,
+          blur: blurRef.current ? BLUR_PX : 0,
         },
-        [screenProc.readable, camProc.readable, gen.writable] as unknown as Transferable[]
+        transfers
       );
       workerRef.current = worker;
       canvasStreamRef.current = new MediaStream([gen]);
       return;
     }
 
-    if (!camVideoRef.current && camStreamRef.current) {
+    if (withCam && !camVideoRef.current && camStreamRef.current) {
       camVideoRef.current = hiddenVideo(camStreamRef.current);
     }
     if (!screenVideoRef.current && screenStreamRef.current) {
@@ -258,6 +297,10 @@ export default function Broadcaster({ token }: { token: string }) {
       ctxRef.current = c.getContext("2d", { alpha: false, desynchronized: true })!;
       ctxRef.current.imageSmoothingQuality = "low";
       canvasStreamRef.current = c.captureStream(FPS);
+      const track = canvasStreamRef.current.getVideoTracks()[0];
+      if (track) track.contentHint = "motion";
+    } else if (!canvasStreamRef.current) {
+      canvasStreamRef.current = canvasRef.current.captureStream(FPS);
       const track = canvasStreamRef.current.getVideoTracks()[0];
       if (track) track.contentHint = "motion";
     }
@@ -276,8 +319,11 @@ export default function Broadcaster({ token }: { token: string }) {
   };
 
   const stopCompositor = () => {
-    workerRef.current?.terminate();
-    workerRef.current = null;
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      workerRef.current = null;
+      canvasStreamRef.current = null;
+    }
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
     if (bgTimerRef.current) clearInterval(bgTimerRef.current);
@@ -286,13 +332,17 @@ export default function Broadcaster({ token }: { token: string }) {
 
   const videoTrackFor = (mode: Source): MediaStreamTrack | undefined => {
     if (mode === "camera") return camStreamRef.current?.getVideoTracks()[0];
-    if (mode === "screen") return screenStreamRef.current?.getVideoTracks()[0];
+    if (mode === "screen")
+      return blurRef.current
+        ? canvasStreamRef.current?.getVideoTracks()[0]
+        : screenStreamRef.current?.getVideoTracks()[0];
     return canvasStreamRef.current?.getVideoTracks()[0];
   };
 
   const previewFor = (mode: Source): MediaStream | null => {
     if (mode === "camera") return camStreamRef.current;
-    if (mode === "screen") return screenStreamRef.current;
+    if (mode === "screen")
+      return blurRef.current ? canvasStreamRef.current : screenStreamRef.current;
     return canvasStreamRef.current;
   };
 
@@ -309,8 +359,10 @@ export default function Broadcaster({ token }: { token: string }) {
       setError("Нет доступа к камере или экрану - источник не переключён.");
       return;
     }
-    if (next === "both") startCompositor();
-    else stopCompositor();
+    stopCompositor();
+    if (next === "both" || (next === "screen" && blurRef.current)) {
+      startCompositor(next === "both");
+    }
     if (next === "camera") releaseScreen();
     if (next === "screen") releaseCam();
 
@@ -320,6 +372,17 @@ export default function Broadcaster({ token }: { token: string }) {
     if (previewRef.current) previewRef.current.srcObject = previewFor(next);
     modeRef.current = next;
     setSource(next);
+  };
+
+  const toggleBlur = (on: boolean) => {
+    blurRef.current = on;
+    setBlurOn(on);
+    // в режиме «экран + камера» воркер меняет блюр на лету
+    workerRef.current?.postMessage({ blur: on ? BLUR_PX : 0 });
+    // в режиме «экран» надо переключить исходящий трек: сырой ↔ канвас с блюром
+    if (resourceRef.current && modeRef.current === "screen") {
+      void applyMode("screen").catch(() => {});
+    }
   };
 
   const startStats = () => {
@@ -391,7 +454,9 @@ export default function Broadcaster({ token }: { token: string }) {
         await ensureScreen();
         await ensureCam();
       }
-      if (source === "both") startCompositor();
+      if (source === "both" || (source === "screen" && blurRef.current)) {
+        startCompositor(source === "both");
+      }
       modeRef.current = source;
 
       const videoTrack = videoTrackFor(source);
@@ -547,6 +612,19 @@ export default function Broadcaster({ token }: { token: string }) {
                 className="accent-[var(--accent)]"
               />
               Микрофон
+            </label>
+            <label
+              className="flex cursor-pointer items-center gap-2 text-sm text-muted"
+              title="Экран уходит в эфир размытым: текст не прочитать, камеру не трогает"
+            >
+              <input
+                type="checkbox"
+                checked={blurOn}
+                disabled={state === "starting"}
+                onChange={(e) => toggleBlur(e.target.checked)}
+                className="accent-[var(--accent)]"
+              />
+              Блюр экрана
             </label>
           </div>
 

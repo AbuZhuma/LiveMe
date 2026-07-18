@@ -171,7 +171,7 @@ export default function AdminPage() {
   if (!token) return <Login onOk={setToken} />;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-3 py-4 sm:space-y-10 sm:px-4 sm:py-8">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-3 py-2 sm:space-y-5 sm:px-4 sm:py-4">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-lg font-semibold">Кабинет</h1>
         <button

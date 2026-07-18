@@ -42,6 +42,12 @@ hlsSegmentDuration: 2s
 hlsPartDuration: 500ms
 hlsAlwaysRemux: true
 hlsAllowOrigins: ["*"]
+# «CDN-режим» для запросов с этим Bearer-заголовком (его ставит наш nginx на
+# /aac/): отключает cookie-сессии зрителей HLS. Без этого нативный плеер
+# iPhone не проносит куку через 302 cookie-check и получает 400 «HLS on iOS
+# requires the server to set and read cookies» → чёрный экран (проверено).
+# Это не секрет безопасности (read и так публичный), а переключатель режима.
+hlsCDNSecret: liveme-edge
 
 pathDefaults:
   record: false
