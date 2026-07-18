@@ -9,7 +9,7 @@ type Source = "camera" | "screen" | "both";
 const OUT_W = 1280;
 const OUT_H = 720;
 const FPS = 30;
-const BLUR_PX = 12;
+const BLUR_DEFAULT = 5;
 
 type OutboundVideoStats = {
   type: string;
@@ -125,6 +125,7 @@ export default function Broadcaster({ token }: { token: string }) {
   const [source, setSource] = useState<Source>("camera");
   const [micOn, setMicOn] = useState(true);
   const [blurOn, setBlurOn] = useState(false);
+  const [blurPx, setBlurPx] = useState(BLUR_DEFAULT);
   const [stats, setStats] = useState("");
 
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -144,6 +145,7 @@ export default function Broadcaster({ token }: { token: string }) {
   const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const blurRef = useRef(false);
+  const blurPxRef = useRef(BLUR_DEFAULT);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const statsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastBytesRef = useRef(0);
@@ -211,7 +213,7 @@ export default function Broadcaster({ token }: { token: string }) {
       const k = Math.min(OUT_W / sv.videoWidth, OUT_H / sv.videoHeight);
       const dw = sv.videoWidth * k;
       const dh = sv.videoHeight * k;
-      if (blurRef.current) ctx.filter = `blur(${BLUR_PX}px)`;
+      if (blurRef.current) ctx.filter = `blur(${blurPxRef.current}px)`;
       ctx.drawImage(sv, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
       ctx.filter = "none";
     }
@@ -274,7 +276,7 @@ export default function Broadcaster({ token }: { token: string }) {
           out: gen.writable,
           w: OUT_W,
           h: OUT_H,
-          blur: blurRef.current ? BLUR_PX : 0,
+          blur: blurRef.current ? blurPxRef.current : 0,
         },
         transfers
       );
@@ -378,11 +380,17 @@ export default function Broadcaster({ token }: { token: string }) {
     blurRef.current = on;
     setBlurOn(on);
     // в режиме «экран + камера» воркер меняет блюр на лету
-    workerRef.current?.postMessage({ blur: on ? BLUR_PX : 0 });
+    workerRef.current?.postMessage({ blur: on ? blurPxRef.current : 0 });
     // в режиме «экран» надо переключить исходящий трек: сырой ↔ канвас с блюром
     if (resourceRef.current && modeRef.current === "screen") {
       void applyMode("screen").catch(() => {});
     }
+  };
+
+  const setBlurLevel = (px: number) => {
+    blurPxRef.current = px;
+    setBlurPx(px);
+    if (blurRef.current) workerRef.current?.postMessage({ blur: px });
   };
 
   const startStats = () => {
@@ -626,6 +634,23 @@ export default function Broadcaster({ token }: { token: string }) {
               />
               Блюр экрана
             </label>
+            {blurOn && (
+              <label
+                className="flex items-center gap-2 text-sm text-muted"
+                title="Сила размытия экрана"
+              >
+                <input
+                  type="range"
+                  min={4}
+                  max={24}
+                  step={1}
+                  value={blurPx}
+                  onChange={(e) => setBlurLevel(Number(e.target.value))}
+                  className="w-24 accent-[var(--accent)]"
+                />
+                <span className="font-mono text-xs tabular-nums">{blurPx}px</span>
+              </label>
+            )}
           </div>
 
           <p className="text-xs text-muted">

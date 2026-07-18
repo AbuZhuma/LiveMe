@@ -66,18 +66,16 @@ function useChatForm(onSent?: () => void) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const [askName, setAskName] = useState(false);
 
-  const submit = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    const t = text.trim();
-    if (!t || busy) return;
+  const doSend = async (sendName: string, t: string) => {
     setBusy(true);
     setNote("");
-    localStorage.setItem(NAME_KEY, name.trim());
+    localStorage.setItem(NAME_KEY, sendName);
     const res = await fetch("/api/comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), text: t }),
+      body: JSON.stringify({ name: sendName, text: t }),
     }).catch(() => null);
     if (res?.ok) {
       setText("");
@@ -90,7 +88,90 @@ function useChatForm(onSent?: () => void) {
     setBusy(false);
   };
 
-  return { name, setName: setTypedName, text, setText, busy, note, submit };
+  const submit = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    const t = text.trim();
+    if (!t || busy) return;
+    if (!name.trim()) {
+      setAskName(true);
+      return;
+    }
+    await doSend(name.trim(), t);
+  };
+
+  const confirmName = (n: string) => {
+    const nn = n.trim();
+    if (!nn) return;
+    setAskName(false);
+    setTypedName(nn);
+    localStorage.setItem(NAME_KEY, nn);
+    const t = text.trim();
+    if (t) void doSend(nn, t);
+  };
+
+  return {
+    name,
+    setName: setTypedName,
+    text,
+    setText,
+    busy,
+    note,
+    submit,
+    askName,
+    closeAsk: () => setAskName(false),
+    confirmName,
+  };
+}
+
+function NamePrompt({
+  onConfirm,
+  onClose,
+}: {
+  onConfirm: (name: string) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault();
+          onConfirm(value);
+        }}
+        className="w-full max-w-xs space-y-3 rounded-brand border border-line bg-panel p-4"
+      >
+        <p className="text-sm font-medium">Как вас подписать в чате?</p>
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Ваше имя"
+          maxLength={40}
+          autoFocus
+          className="h-10 w-full rounded-brand bg-panel-2 px-3.5 text-base outline-none placeholder:text-muted focus:ring-2 focus:ring-accent/50"
+        />
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={!value.trim()}
+            className="flex-1 rounded-brand bg-accent px-3 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+          >
+            Отправить
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-brand px-3 py-2 text-sm text-muted transition hover:bg-panel-2"
+          >
+            Отмена
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
 
 const OVERLAY_TTL = 10_000;
@@ -167,9 +248,11 @@ export function ChatOverlay({ className = "" }: { className?: string }) {
 }
 
 export function MobileChatBar({ className = "" }: { className?: string }) {
-  const { text, setText, busy, note, submit } = useChatForm();
+  const { text, setText, busy, note, submit, askName, closeAsk, confirmName } =
+    useChatForm();
   return (
     <div className={className}>
+      {askName && <NamePrompt onConfirm={confirmName} onClose={closeAsk} />}
       <form onSubmit={submit} className="flex items-center gap-2">
         <input
           value={text}
@@ -196,7 +279,18 @@ export default function Comments({ className = "" }: { className?: string }) {
   const comments = useComments();
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
-  const { name, setName, text, setText, busy, note, submit } = useChatForm(() => {
+  const {
+    name,
+    setName,
+    text,
+    setText,
+    busy,
+    note,
+    submit,
+    askName,
+    closeAsk,
+    confirmName,
+  } = useChatForm(() => {
     stickToBottom.current = true;
   });
 
@@ -246,7 +340,7 @@ export default function Comments({ className = "" }: { className?: string }) {
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Имя (необязательно)"
+          placeholder="Имя"
           maxLength={40}
           className="h-9 w-full rounded-brand bg-panel-2 px-3.5 text-sm outline-none transition-shadow placeholder:text-muted focus:ring-2 focus:ring-accent/50"
         />
@@ -269,6 +363,7 @@ export default function Comments({ className = "" }: { className?: string }) {
         </div>
         {note && <p className="text-xs text-accent">{note}</p>}
       </form>
+      {askName && <NamePrompt onConfirm={confirmName} onClose={closeAsk} />}
     </section>
   );
 }
