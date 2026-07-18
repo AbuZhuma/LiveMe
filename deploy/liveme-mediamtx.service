@@ -8,6 +8,8 @@ Type=simple
 User=liveme
 WorkingDirectory=@APP_DIR@
 Environment=MTX_WEBRTCADDITIONALHOSTS=@DOMAIN@
+
+Environment=MTX_WEBRTCIPSFROMINTERFACES=no
 ExecStart=@APP_DIR@/media/.cache/mediamtx @APP_DIR@/media/mediamtx.yml
 Restart=always
 RestartSec=2

@@ -1,8 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { CommentT, onServerEvent } from "@/lib/events";
 import { IconSend } from "@/components/icons";
+
+const NAME_KEY = "lm_name";
+
+function subscribeStoredName(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
+const readStoredName = () => localStorage.getItem(NAME_KEY) ?? "";
+const readStoredNameOnServer = () => "";
 
 function timeOf(ts: number) {
   return new Date(ts * 1000).toLocaleTimeString("ru-RU", {
@@ -40,14 +55,17 @@ export function useComments() {
 }
 
 function useChatForm(onSent?: () => void) {
-  const [name, setName] = useState("");
+  const storedName = useSyncExternalStore(
+    subscribeStoredName,
+    readStoredName,
+    readStoredNameOnServer,
+  );
+  const [typedName, setTypedName] = useState<string | null>(null);
+  const name = typedName ?? storedName;
+
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-
-  useEffect(() => {
-    setName(localStorage.getItem("lm_name") ?? "");
-  }, []);
 
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault();
@@ -55,7 +73,7 @@ function useChatForm(onSent?: () => void) {
     if (!t || busy) return;
     setBusy(true);
     setNote("");
-    localStorage.setItem("lm_name", name.trim());
+    localStorage.setItem(NAME_KEY, name.trim());
     const res = await fetch("/api/comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -72,33 +90,58 @@ function useChatForm(onSent?: () => void) {
     setBusy(false);
   };
 
-  return { name, setName, text, setText, busy, note, submit };
+  return { name, setName: setTypedName, text, setText, busy, note, submit };
 }
 
 const OVERLAY_TTL = 10_000;
 const OVERLAY_FADE = 1_500;
 
+type Floating = { comment: CommentT; fading: boolean };
+
 export function ChatOverlay({ className = "" }: { className?: string }) {
-  const comments = useComments();
-  const seenAt = useRef<Map<number, number>>(new Map());
-  const mountAt = useRef(Date.now());
-  const [, setTick] = useState(0);
+  const [visible, setVisible] = useState<Floating[]>([]);
 
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const later = (ms: number, fn: () => void) => {
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        fn();
+      }, ms);
+      timers.add(timer);
+    };
+
+    const off = onServerEvent((e) => {
+      if (e.type === "comment_deleted") {
+        setVisible((v) => v.filter((x) => x.comment.id !== e.id));
+        return;
+      }
+      if (e.type !== "comment") return;
+
+      const { comment } = e;
+      setVisible((v) =>
+        v.some((x) => x.comment.id === comment.id)
+          ? v
+          : [...v, { comment, fading: false }].slice(-4),
+      );
+      later(OVERLAY_TTL - OVERLAY_FADE, () =>
+        setVisible((v) =>
+          v.map((x) =>
+            x.comment.id === comment.id ? { ...x, fading: true } : x,
+          ),
+        ),
+      );
+      later(OVERLAY_TTL, () =>
+        setVisible((v) => v.filter((x) => x.comment.id !== comment.id)),
+      );
+    });
+
+    return () => {
+      off();
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
-  const now = Date.now();
-  for (const c of comments) {
-    if (!seenAt.current.has(c.id)) {
-      seenAt.current.set(c.id, now - mountAt.current < 1500 ? 0 : now);
-    }
-  }
-
-  const visible = comments
-    .filter((c) => now - (seenAt.current.get(c.id) ?? 0) < OVERLAY_TTL)
-    .slice(-4);
   if (visible.length === 0) return null;
 
   return (
@@ -106,20 +149,19 @@ export function ChatOverlay({ className = "" }: { className?: string }) {
       className={`pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end gap-1 bg-gradient-to-t from-black/60 via-black/25 to-transparent px-3 pt-12 pb-3 sm:px-4 ${className}`}
       aria-hidden
     >
-      {visible.map((c) => {
-        const age = now - (seenAt.current.get(c.id) ?? 0);
-        return (
-          <p
-            key={c.id}
-            className={`chat-overlay-msg max-w-[85%] break-words text-[13px] leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.6)] ${
-              age > OVERLAY_TTL - OVERLAY_FADE ? "chat-overlay-msg-fading" : ""
-            }`}
-          >
-            <span className="mr-1.5 font-semibold text-white/75">{c.name}</span>
-            {c.text}
-          </p>
-        );
-      })}
+      {visible.map(({ comment, fading }) => (
+        <p
+          key={comment.id}
+          className={`chat-overlay-msg max-w-[85%] break-words text-[13px] leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.6)] ${
+            fading ? "chat-overlay-msg-fading" : ""
+          }`}
+        >
+          <span className="mr-1.5 font-semibold text-white/75">
+            {comment.name}
+          </span>
+          {comment.text}
+        </p>
+      ))}
     </div>
   );
 }

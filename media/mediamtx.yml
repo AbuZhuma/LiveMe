@@ -40,7 +40,7 @@ hlsVariant: lowLatency
 hlsSegmentCount: 10
 hlsSegmentDuration: 2s
 hlsPartDuration: 500ms
-hlsAlwaysRemux: false
+hlsAlwaysRemux: true
 hlsAllowOrigins: ["*"]
 
 pathDefaults:
